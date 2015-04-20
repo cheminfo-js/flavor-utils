@@ -1,0 +1,27 @@
+{
+  "name": "flavor-utils",
+  "version": "0.0.1",
+  "description": "",
+  "keywords": [
+    "dummy",
+    "project"
+  ],
+  "main": [
+    "dist/flavor-utils.js",
+    "dist/flavor-utils.min.js"
+  ],
+  "authors": [
+    "Daniel Kostro"
+  ],
+  "homepage": "https://github.com/cheminfo-js/",
+  "license": "MIT",
+  "moduleType": [
+    "amd",
+    "globals",
+    "node"
+  ],
+  "ignore": [
+    "/*",
+    "!dist/*"
+  ]
+}
