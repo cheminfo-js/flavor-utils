@@ -1,6 +1,6 @@
 /**
  * flavor-utils - Utility functions to manipulate cheminfo flavor system on couchdb
- * @version v1.0.0
+ * @version v1.1.0
  * @link https://github.com/cheminfo-js/flavor-utils
  * @license MIT
  */
@@ -143,6 +143,15 @@ FlavorUtils.deleteFlavor = function(opts) {
             return prom;
         }
         return done;
+    });
+};
+
+FlavorUtils.hasViews = function(opts) {
+    processCommonParams(opts);
+    var key = [opts.flavor, opts.username];
+    return getView(opts, 'flavor/docs', key).then(function(res) {
+        if(res.rows && res.rows.length === 0) return false;
+        return true;
     });
 };
 
