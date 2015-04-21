@@ -39,5 +39,9 @@
     "should": "latest",
     "vinyl-buffer": "^1.0.0",
     "vinyl-source-stream": "^1.0.0"
+  },
+  "dependencies": {
+    "bluebird": "^2.9.24",
+    "superagent": "^1.2.0"
   }
 }

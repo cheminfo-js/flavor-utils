@@ -1,4 +1,4 @@
-0.0.0 / HEAD
+0.0.1 / HEAD
 ============
 
 * first release
