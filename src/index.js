@@ -121,7 +121,6 @@ module.exports.prototype.cloneFlavor = function(opts) {
                 });
             }
         }
-
     });
 };
 
