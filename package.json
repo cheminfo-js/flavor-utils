@@ -23,7 +23,6 @@
     "test": "test"
   },
   "scripts": {
-    "test": "mocha --require should --reporter mocha-better-spec-reporter --recursive",
     "build": "gulp build"
   },
   "devDependencies": {
