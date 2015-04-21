@@ -1,8 +1,8 @@
 'use strict';
 
 var superagent= require('superagent');
-var Promise = require('bluebird');
 var Base64 = require('./Base64');
+var Promise = require('bluebird')
 
 module.exports = {};
 
@@ -48,11 +48,10 @@ module.exports.prototype.cloneFlavor = function(opts) {
         }
         done.then(function() {
             console.log('all done');
+        }, function(err) {
+            console.log('error:', err);
         });
 
-        done.catch(function(err) {
-            console.log('error', err);
-        });
 
         function doEl(i) {
             return function () {
@@ -75,7 +74,7 @@ module.exports.prototype.cloneFlavor = function(opts) {
                 }
                 else prom.push(undefined);
                 var prom = Promise.all(prom);
-                prom.then(function (arr) {
+                prom = prom.then(function (arr) {
                     doc = arr[0];
                     newDoc = {};
                     var view = arr[1];
@@ -112,9 +111,6 @@ module.exports.prototype.cloneFlavor = function(opts) {
                             'data': Base64.encode(JSON.stringify(data))
                         };
                     }
-                });
-                prom.catch(function(err) {
-                    console.log('error!', err, err.stack);
                 });
                 return prom.then(function() {
                     return that.saveDoc(newDoc);
