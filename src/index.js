@@ -2,8 +2,6 @@
 
 var superagent= require('superagent');
 var Base64 = require('./Base64');
-var Promise = require('bluebird')
-
 module.exports = {};
 
 /**
