@@ -139,6 +139,15 @@ FlavorUtils.deleteFlavor = function(opts) {
     });
 };
 
+FlavorUtils.hasViews = function(opts) {
+    processCommonParams(opts);
+    var key = [opts.flavor, opts.username];
+    return getView(opts, 'flavor/docs', key).then(function(res) {
+        if(res.rows && res.rows.length === 0) return false;
+        return true;
+    });
+};
+
 
 function deleteDoc(opts, doc) {
     return new Promise(function(resolve, reject) {
