@@ -1,6 +1,6 @@
 /**
  * flavor-utils - Utility functions to manipulate cheminfo flavor system on couchdb
- * @version v1.1.0
+ * @version v1.1.1
  * @link https://github.com/cheminfo-js/flavor-utils
  * @license MIT
  */
@@ -31,7 +31,7 @@ FlavorUtils.cloneFlavor = function(opts) {
     processCommonParams(opts.source);
     processCommonParams(opts.target);
     var key = [opts.source.flavor, opts.source.username];
-    getView(opts.source, 'flavor/docs', key).then(function(res) {
+    return getView(opts.source, 'flavor/docs', key).then(function(res) {
         var result = res.rows;
         if(!result) return;
         var done = Promise.resolve();
