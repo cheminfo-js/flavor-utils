@@ -24,7 +24,7 @@ FlavorUtils.cloneFlavor = function(opts) {
     processCommonParams(opts.source);
     processCommonParams(opts.target);
     var key = [opts.source.flavor, opts.source.username];
-    getView(opts.source, 'flavor/docs', key).then(function(res) {
+    return getView(opts.source, 'flavor/docs', key).then(function(res) {
         var result = res.rows;
         if(!result) return;
         var done = Promise.resolve();
