@@ -102,6 +102,7 @@ FlavorUtils.cloneFlavor = function(opts) {
                 });
             }
         }
+        return done;
     });
 };
 
