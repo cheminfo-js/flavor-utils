@@ -1,6 +1,6 @@
 /**
  * flavor-utils - Utility functions to manipulate cheminfo flavor system on couchdb
- * @version v1.1.1
+ * @version v1.1.2
  * @link https://github.com/cheminfo-js/flavor-utils
  * @license MIT
  */
@@ -109,6 +109,7 @@ FlavorUtils.cloneFlavor = function(opts) {
                 });
             }
         }
+        return done;
     });
 };
 
