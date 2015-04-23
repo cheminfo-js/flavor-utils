@@ -1,6 +1,6 @@
 /**
  * flavor-utils - Utility functions to manipulate cheminfo flavor system on couchdb
- * @version v1.1.2
+ * @version v1.2.0
  * @link https://github.com/cheminfo-js/flavor-utils
  * @license MIT
  */
@@ -76,7 +76,21 @@ FlavorUtils.cloneFlavor = function(opts) {
                     delete doc._rev;
 
                     newDoc.flavors = {};
-                    if(doc.flavors[opts.source.flavor]) {
+                    var sub = [];
+
+                    if(opts.target.subFolder && typeof opts.target.subFolder === 'string') {
+                        sub = opts.target.subFolder.split('/').filter(function(v) { return v !== ""});
+                    }
+                    if(sub.length > 0 && doc.flavors[opts.source.flavor]) {
+                        if(doc.flavors[opts.source.flavor]) {
+                            var arr = doc.flavors[opts.source.flavor];
+                            for(var j=sub.length-1; j>=0; j--) {
+                                arr.unshift(sub[j]);
+                            }
+                            newDoc.flavors[opts.target.flavor] = arr;
+                        }
+                    }
+                    else if(doc.flavors[opts.source.flavor]) {
                         newDoc.flavors[opts.target.flavor] = doc.flavors[opts.source.flavor];
                     }
 
@@ -120,7 +134,7 @@ FlavorUtils.deleteFlavor = function(opts) {
         var result = res.rows;
         var done = Promise.resolve();
         for(var i=0; i<result.length; i++) {
-            done.then(doEl(i));
+            done = done.then(doEl(i));
         }
 
         done.then(function() {
@@ -166,10 +180,8 @@ function deleteDoc(opts, doc) {
             .query({rev: doc._rev})
             .end(function(err, res) {
                 if(err) {
-                    console.log(err);
                     return reject(err);
                 }
-                console.log(res)
                 resolve(res);
             })
     });
