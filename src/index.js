@@ -1,10 +1,15 @@
 'use strict';
 
+/**
+ * ECMA6 Promise.
+ * @external Promise
+ * @see {@link https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Promise}
+ */
+
 var superagent = require('superagent');
 var Base64 = require('./Base64');
-module.exports = {};
 
-var FlavorUtils = module.exports = {};
+module.exports = {};
 
 /**
  * Clone a flavor from one user to another
@@ -13,14 +18,15 @@ var FlavorUtils = module.exports = {};
  * @param {string} opts.source.username - The name of the user's from which to clone
  * @param {string} opts.source.flavor - The name of the flavor to clone
  * @param {string} opts.source.couchUrl - Couchdb root url of the source. It should contain username + password if necessary
- * @param {string} opts.target.couchDatabase - the name of the target couchdb database
+ * @param {string} opts.source.couchDatabase - the name of the target couchdb database
  * @param {string} opts.target - target description
  * @param {String} opts.target.username - The target username to which to clone the flavor
  * @param {string} opts.target.flavor - The name of the flavor in the target
  * @param {string} opts.target.couchUrl - Couchdb root url of the target. It should contain username + password if necessary
  * @param {string} opts.target.couchDatabase - the name of the target couchdb database
+ * @return {external:Promise} A promise that resolves with `undefined` if success, or rejects with an error if failure
  */
-FlavorUtils.cloneFlavor = function (opts) {
+module.exports.clone = function (opts) {
     processCommonParams(opts.source);
     processCommonParams(opts.target);
     var key = [opts.source.flavor, opts.source.username];
@@ -36,6 +42,7 @@ FlavorUtils.cloneFlavor = function (opts) {
             console.log('all done');
         }, function (err) {
             console.log('error:', err);
+            return err;
         });
 
 
@@ -59,8 +66,7 @@ FlavorUtils.cloneFlavor = function (opts) {
                     prom.push(meta);
                 }
                 else prom.push(undefined);
-                var prom = Promise.all(prom);
-                prom = prom.then(function (arr) {
+                prom = Promise.all(prom).then(function (arr) {
                     doc = arr[0];
                     newDoc = {};
                     var view = arr[1];
@@ -114,7 +120,7 @@ FlavorUtils.cloneFlavor = function (opts) {
                     }
                 });
                 return prom.then(function () {
-                    saveDoc(opts.target, newDoc);
+                    return saveDoc(opts.target, newDoc);
                 });
             }
         }
@@ -123,7 +129,16 @@ FlavorUtils.cloneFlavor = function (opts) {
     });
 };
 
-FlavorUtils.deleteFlavor = function (opts) {
+/**
+ * Clone a flavor from one user to another
+ * @param {Object} opts - options
+ * @param {string} opts.username - The name of the user's from which to clone
+ * @param {string} opts.flavor - The name of the flavor to clone
+ * @param {string} opts.couchUrl - Couchdb root url of the source. It should contain username + password if necessary
+ * @param {string} opts.couchDatabase - the name of the target couchdb database
+ * @return {external:Promise} Promise that resolves with `undefined` if success, or rejects with an error if not
+ */
+module.exports.del = function (opts) {
     processCommonParams(opts);
     var key = [opts.flavor, opts.username];
     return getView(opts, 'flavor/docs', key).then(function (res) {
@@ -153,12 +168,20 @@ FlavorUtils.deleteFlavor = function (opts) {
             });
             return prom;
         }
-
         return done;
     });
 };
 
-FlavorUtils.hasViews = function (opts) {
+/**
+ * Check if a flavor has views
+ * @param {Object} opts - options
+ * @param {string} opts.username - The name of the user's from which to clone
+ * @param {string} opts.flavor - The name of the flavor to clone
+ * @param {string} opts.couchUrl - Couchdb root url of the source. It should contain username + password if necessary
+ * @param {string} opts.couchDatabase - the name of the target couchdb database
+ * @return {boolean} true if the flavor exists and has views, false if the the flavor does not exist or does not have views
+ */
+module.exports.hasViews = function (opts) {
     processCommonParams(opts);
     var key = [opts.flavor, opts.username];
     return getView(opts, 'flavor/docs', key).then(function (res) {
@@ -201,6 +224,12 @@ function updateDoc(opts, doc) {
     });
 }
 
+/**
+ * @private
+ * @param opts - the usual options object
+ * @param doc - The document to save
+ * @return {Promise} - Promise that resolves with couchdb's response if success, or rejects with error if failure
+ */
 function saveDoc(opts, doc) {
     return new Promise(function (resolve, reject) {
         var url = opts.databaseUrl;
@@ -217,11 +246,7 @@ function saveDoc(opts, doc) {
             })
     });
 }
-/**
- * Get couchdb uuids
- * @param {Object} count - the number of uuids needed
- *
- */
+
 function getUUIDs(opts, count) {
     count = count || 1;
     return getJSON(opts.couchUrl + '/_uuids?count=' + count);
