@@ -1,6 +1,6 @@
 'use strict';
 
-var superagent= require('superagent');
+var superagent = require('superagent');
 var Base64 = require('./Base64');
 module.exports = {};
 
@@ -20,21 +20,21 @@ var FlavorUtils = module.exports = {};
  * @param {string} opts.target.couchUrl - Couchdb root url of the target. It should contain username + password if necessary
  * @param {string} opts.target.couchDatabase - the name of the target couchdb database
  */
-FlavorUtils.cloneFlavor = function(opts) {
+FlavorUtils.cloneFlavor = function (opts) {
     processCommonParams(opts.source);
     processCommonParams(opts.target);
     var key = [opts.source.flavor, opts.source.username];
-    return getView(opts.source, 'flavor/docs', key).then(function(res) {
+    return getView(opts.source, 'flavor/docs', key).then(function (res) {
         var result = res.rows;
-        if(!result) return;
+        if (!result) return;
         var done = Promise.resolve();
-        var i= 0;
-        for(i=0; i<result.length; i++) {
+        var i = 0;
+        for (i = 0; i < result.length; i++) {
             done = done.then(doEl(i));
         }
-        done.then(function() {
+        done.then(function () {
             console.log('all done');
-        }, function(err) {
+        }, function (err) {
             console.log('error:', err);
         });
 
@@ -71,39 +71,41 @@ FlavorUtils.cloneFlavor = function(opts) {
                     newDoc.flavors = {};
                     var sub = [];
 
-                    if(opts.target.subFolder && typeof opts.target.subFolder === 'string') {
-                        sub = opts.target.subFolder.split('/').filter(function(v) { return v !== ""});
+                    if (opts.target.subFolder && typeof opts.target.subFolder === 'string') {
+                        sub = opts.target.subFolder.split('/').filter(function (v) {
+                            return v !== ""
+                        });
                     }
-                    if(sub.length > 0 && doc.flavors[opts.source.flavor]) {
-                        if(doc.flavors[opts.source.flavor]) {
+                    if (sub.length > 0 && doc.flavors[opts.source.flavor]) {
+                        if (doc.flavors[opts.source.flavor]) {
                             var arr = doc.flavors[opts.source.flavor];
-                            for(var j=sub.length-1; j>=0; j--) {
+                            for (var j = sub.length - 1; j >= 0; j--) {
                                 arr.unshift(sub[j]);
                             }
                             newDoc.flavors[opts.target.flavor] = arr;
                         }
                     }
-                    else if(doc.flavors[opts.source.flavor]) {
+                    else if (doc.flavors[opts.source.flavor]) {
                         newDoc.flavors[opts.target.flavor] = doc.flavors[opts.source.flavor];
                     }
 
                     newDoc.name = opts.target.username;
 
-                    if(meta) {
+                    if (meta) {
                         newDoc._attachments = newDoc._attachments || {};
                         newDoc._attachments['meta.json'] = {
                             'content_type': 'application/json',
                             'data': Base64.encode(JSON.stringify(meta))
                         };
                     }
-                    if(view) {
+                    if (view) {
                         newDoc._attachments = newDoc._attachments || {};
                         newDoc._attachments['view.json'] = {
                             'content_type': 'application/json',
                             'data': Base64.encode(JSON.stringify(view))
                         };
                     }
-                    if(data) {
+                    if (data) {
                         newDoc._attachments = newDoc._attachments || {};
                         newDoc._attachments['data.json'] = {
                             'content_type': 'application/json',
@@ -111,37 +113,38 @@ FlavorUtils.cloneFlavor = function(opts) {
                         };
                     }
                 });
-                return prom.then(function() {
+                return prom.then(function () {
                     saveDoc(opts.target, newDoc);
                 });
             }
         }
+
         return done;
     });
 };
 
-FlavorUtils.deleteFlavor = function(opts) {
+FlavorUtils.deleteFlavor = function (opts) {
     processCommonParams(opts);
     var key = [opts.flavor, opts.username];
-    return getView(opts, 'flavor/docs', key).then(function(res) {
+    return getView(opts, 'flavor/docs', key).then(function (res) {
         var result = res.rows;
         var done = Promise.resolve();
-        for(var i=0; i<result.length; i++) {
+        for (var i = 0; i < result.length; i++) {
             done = done.then(doEl(i));
         }
 
-        done.then(function() {
+        done.then(function () {
             console.log('delete flavor done');
-        }, function(err) {
+        }, function (err) {
             console.log('Error!', err, err.stack);
         });
 
         function doEl(i) {
             var prom = getJSON(opts.databaseUrl + '/' + result[i].id);
-            prom = prom.then(function(doc) {
+            prom = prom.then(function (doc) {
                 delete doc.flavors[opts.flavor];
                 var keys = Object.keys(doc.flavors);
-                if(keys.length === 0) {
+                if (keys.length === 0) {
                     return deleteDoc(opts, doc);
                 }
                 else {
@@ -150,29 +153,30 @@ FlavorUtils.deleteFlavor = function(opts) {
             });
             return prom;
         }
+
         return done;
     });
 };
 
-FlavorUtils.hasViews = function(opts) {
+FlavorUtils.hasViews = function (opts) {
     processCommonParams(opts);
     var key = [opts.flavor, opts.username];
-    return getView(opts, 'flavor/docs', key).then(function(res) {
-        if(res.rows && res.rows.length === 0) return false;
+    return getView(opts, 'flavor/docs', key).then(function (res) {
+        if (res.rows && res.rows.length === 0) return false;
         return true;
     });
 };
 
 
 function deleteDoc(opts, doc) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
         var url = opts.databaseUrl + '/' + doc._id;
         console.log(url);
         superagent
             .del(url)
             .query({rev: doc._rev})
-            .end(function(err, res) {
-                if(err) {
+            .end(function (err, res) {
+                if (err) {
                     return reject(err);
                 }
                 resolve(res);
@@ -181,15 +185,15 @@ function deleteDoc(opts, doc) {
 }
 
 function updateDoc(opts, doc) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
         console.log('update doc');
         var url = opts.databaseUrl + '/' + doc._id;
         superagent
             .put(url)
             .set('Content-Type', 'application/json')
             .send(doc)
-            .end(function(err, res) {
-                if(err) {
+            .end(function (err, res) {
+                if (err) {
                     return reject(err);
                 }
                 resolve(res.body);
@@ -198,15 +202,15 @@ function updateDoc(opts, doc) {
 }
 
 function saveDoc(opts, doc) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
         var url = opts.databaseUrl;
         delete doc._id;
         superagent
             .post(url)
             .set('Content-Type', 'application/json')
             .send(doc)
-            .end(function(err, res) {
-                if(err) {
+            .end(function (err, res) {
+                if (err) {
                     return reject(err);
                 }
                 resolve(res.body);
@@ -224,12 +228,12 @@ function getUUIDs(opts, count) {
 }
 
 function getJSON(url) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
         superagent
             .get(url)
             .set('Accept', 'application/json')
-            .end(function(err, res) {
-                if(err) {
+            .end(function (err, res) {
+                if (err) {
                     return reject(err);
                 }
                 resolve(res.body);
@@ -246,10 +250,10 @@ function getView(opts, view, key) {
 }
 
 function processCommonParams(params) {
-    if(!params) return;
-    if(params.couchUrl) params.couchUrl = params.couchUrl.replace(/\/$/, '');
-    if(params.couchUrl && params.couchDatabase) {
-        params.databaseUrl =params.couchUrl + '/' + params.couchDatabase;
+    if (!params) return;
+    if (params.couchUrl) params.couchUrl = params.couchUrl.replace(/\/$/, '');
+    if (params.couchUrl && params.couchDatabase) {
+        params.databaseUrl = params.couchUrl + '/' + params.couchDatabase;
     }
 
 }
