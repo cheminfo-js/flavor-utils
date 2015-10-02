@@ -168,25 +168,111 @@ module.exports.del = function (opts) {
             });
             return prom;
         }
+
         return done;
     });
 };
 
 /**
- * Check if a flavor has views
+ * Get a a flavor
  * @param {Object} opts - options
- * @param {string} opts.username - The name of the user's from which to clone
- * @param {string} opts.flavor - The name of the flavor to clone
+ * @param {string} opts.username - The user for which to search flavors
+ * @param {string} opts.flavor - The name of the flavor
  * @param {string} opts.couchUrl - Couchdb root url of the source. It should contain username + password if necessary
  * @param {string} opts.couchDatabase - the name of the target couchdb database
- * @return {boolean} true if the flavor exists and has views, false if the the flavor does not exist or does not have views
+ *
+ * @return {external:Promise} A promise that resolves with true if the flavor exists and has views, false if the the
+ * flavor does not exist or does not have views
+ */
+module.exports.getFlavor = function (opts) {
+    processCommonParams(opts);
+    var key = [opts.flavor, opts.username];
+    return getView(opts, 'flavor/docs', key);
+};
+
+/**
+ * Get the hierachical structure from a flavor
+ * @param {Object} Expects either a view object such as returned by `getFlavor`, or the usual
+ * parameters: username, flavor, couchUrl, couchDatabase to perform the request and then create the structure from
+ * the result
+ */
+module.exports.getTree = function (opts) {
+    if (opts.couchUrl) {
+        return module.exports.getFlavor(opts).then(function (view) {
+            var x = getTree(view.rows);
+            console.log(x); return x;
+        });
+    } else {
+        return Promise.resolve(getTree(opts));
+    }
+
+    function getTree(rows) {
+        var row, structure = {};
+        console.log(rows);
+        Object.defineProperty(structure, '__root', {enumerable: false, writable: true, value: true});
+        for (var i = 0; i < rows.length; i++) {
+            row = rows[i];
+            var flavors = row.value.flavors;
+            doElement(flavors, structure, row.value);
+        }
+        return structure;
+    }
+
+    function doElement(flavors, current, row) {
+        if (!flavors.length) {
+            console.log('element');
+            current.__data = row.data;
+            current.__view = row.view;
+            current.__meta = row.meta;
+            current.__id = row._id;
+            current.__rev = row._rev;
+            return;
+        }
+
+        var flavor = flavors.shift();
+        if (!current[flavor])
+            current[flavor] = {
+                __name: flavor
+            };
+        return doElement(flavors, current[flavor], row);
+    }
+};
+module.exports.traverseTree = function(structure, viewCb, dirCb) {
+    let promise = Promise.resolve();
+    for (let key in structure) {
+        if (key === '__name') continue;
+        let el = structure[key];
+        if (el.__id) { // Element is a view
+            if(viewCb) promise = promise.then(function() {
+                return viewCb(el);
+            });
+        } else if (key !== '__root') { // Element is a directory
+            if(dirCb) promise = promise.then(function() {
+                return dirCb(el);
+            });
+            promise = promise.then(function() {
+                return module.exports.traverseTree(el, viewCb, dirCb);
+            });
+        }
+    }
+    return promise;
+};
+
+/**
+ * Check if a flavor has views
+ * @param {Object} opts - options
+ * @param {string} opts.username - The username for which to search the flavor
+ * @param {string} opts.flavor - The name of the flavor
+ * @param {string} opts.couchUrl - Couchdb root url of the source. It should contain username + password if necessary
+ * @param {string} opts.couchDatabase - the name of the target couchdb database
+ * @return {external:Promise} A promise that resolves with true if the flavor exists and has views, false if the flavor
+ * does not exist or does not have views
  */
 module.exports.hasViews = function (opts) {
     processCommonParams(opts);
     var key = [opts.flavor, opts.username];
     return getView(opts, 'flavor/docs', key).then(function (res) {
-        if (res.rows && res.rows.length === 0) return false;
-        return true;
+        return !(res.rows && res.rows.length === 0);
     });
 };
 
@@ -247,6 +333,14 @@ function saveDoc(opts, doc) {
     });
 }
 
+function getView(opts, view, key) {
+    var x = view.split('/');
+    var designDoc = '_design/' + x[0];
+    var viewName = x[1];
+
+    return getJSON(opts.databaseUrl + '/' + designDoc + '/_view/' + viewName + '?key=' + encodeURIComponent(JSON.stringify(key)));
+};
+
 function getUUIDs(opts, count) {
     count = count || 1;
     return getJSON(opts.couchUrl + '/_uuids?count=' + count);
@@ -266,13 +360,6 @@ function getJSON(url) {
     });
 }
 
-function getView(opts, view, key) {
-    var x = view.split('/');
-    var designDoc = '_design/' + x[0];
-    var viewName = x[1];
-
-    return getJSON(opts.databaseUrl + '/' + designDoc + '/_view/' + viewName + '?key=' + encodeURIComponent(JSON.stringify(key)));
-}
 
 function processCommonParams(params) {
     if (!params) return;
