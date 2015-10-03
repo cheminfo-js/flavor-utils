@@ -180,13 +180,18 @@ module.exports.del = function (opts) {
  * @param {string} opts.flavor - The name of the flavor
  * @param {string} opts.couchUrl - Couchdb root url of the source. It should contain username + password if necessary
  * @param {string} opts.couchDatabase - the name of the target couchdb database
- *
+ * @param {boolean} sorted - Should the result be sorted - Default is true
  * @return {external:Promise} A promise that resolves with true if the flavor exists and has views, false if the the
  * flavor does not exist or does not have views
  */
-module.exports.getFlavor = function (opts) {
+module.exports.getFlavor = function (opts, sorted) {
     processCommonParams(opts);
+    sorted = sorted === undefined ? true : sorted;
     var key = [opts.flavor, opts.username];
+    if(sorted) {
+        console.log('use sorted');
+        return getList(opts, 'flavor/sort', 'docs', key);
+    }
     return getView(opts, 'flavor/docs', key);
 };
 
@@ -198,9 +203,9 @@ module.exports.getFlavor = function (opts) {
  */
 module.exports.getTree = function (opts) {
     if (opts.couchUrl) {
-        return module.exports.getFlavor(opts).then(function (view) {
-            var x = getTree(view.rows);
-            console.log(x); return x;
+        return module.exports.getFlavor(opts).then(function (views) {
+            if(views.rows) views = views.rows;
+            return getTree(views);
         });
     } else {
         return Promise.resolve(getTree(opts));
@@ -208,7 +213,6 @@ module.exports.getTree = function (opts) {
 
     function getTree(rows) {
         var row, structure = {};
-        console.log(rows);
         Object.defineProperty(structure, '__root', {enumerable: false, writable: true, value: true});
         for (var i = 0; i < rows.length; i++) {
             row = rows[i];
@@ -220,7 +224,6 @@ module.exports.getTree = function (opts) {
 
     function doElement(flavors, current, row) {
         if (!flavors.length) {
-            console.log('element');
             current.__data = row.data;
             current.__view = row.view;
             current.__meta = row.meta;
@@ -230,17 +233,23 @@ module.exports.getTree = function (opts) {
         }
 
         var flavor = flavors.shift();
-        if (!current[flavor])
+        if (!current[flavor]) {
             current[flavor] = {
-                __name: flavor
+                __name: flavor,
+                __parents: current.__parents ? current.__parents.slice() : [],
+                __parent: current
             };
+            if(current.__name) current[flavor].__parents.push(current.__name);
+            //if(current.__parents) console.log(current.__parents)
+        }
+
         return doElement(flavors, current[flavor], row);
     }
 };
 module.exports.traverseTree = function(structure, viewCb, dirCb) {
     let promise = Promise.resolve();
     for (let key in structure) {
-        if (key === '__name') continue;
+        if (key.startsWith('__')) continue;
         let el = structure[key];
         if (el.__id) { // Element is a view
             if(viewCb) promise = promise.then(function() {
@@ -280,7 +289,6 @@ module.exports.hasViews = function (opts) {
 function deleteDoc(opts, doc) {
     return new Promise(function (resolve, reject) {
         var url = opts.databaseUrl + '/' + doc._id;
-        console.log(url);
         superagent
             .del(url)
             .query({rev: doc._rev})
@@ -295,7 +303,6 @@ function deleteDoc(opts, doc) {
 
 function updateDoc(opts, doc) {
     return new Promise(function (resolve, reject) {
-        console.log('update doc');
         var url = opts.databaseUrl + '/' + doc._id;
         superagent
             .put(url)
@@ -339,7 +346,15 @@ function getView(opts, view, key) {
     var viewName = x[1];
 
     return getJSON(opts.databaseUrl + '/' + designDoc + '/_view/' + viewName + '?key=' + encodeURIComponent(JSON.stringify(key)));
-};
+}
+
+function getList(opts, list, view, key) {
+    var x = list.split('/');
+    var designDoc = '_design/' + x[0];
+    var listName = x[1];
+
+    return getJSON(opts.databaseUrl + '/' + designDoc + '/_list/' + listName + '/' + view + '?key=' + encodeURIComponent(JSON.stringify(key)));
+}
 
 function getUUIDs(opts, count) {
     count = count || 1;
