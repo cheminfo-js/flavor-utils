@@ -1,41 +1,65 @@
 'use strict';
 
+const superagent = require('superagent');
+const Base64 = require('./Base64');
+
+const optionDefaults = {
+    designDoc: 'flavor'
+};
+
+
 /**
- * ECMA6 Promise.
- * @external Promise
- * @see {@link https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Promise}
+ * General options object
+ * @typedef {object} options
+ * @property {string} opts.target - target description
+ * @property {String} username - The target username to which to clone the flavor
+ * @property {String} designDoc - The design doc to use for views and list queries - Defaults to 'flavor'
+ * @property {string} flavor - The name of the flavor in the target
+ * @property {string} couchUrl - Couchdb root url of the target. It can contain username + password if but will be overriden if couchUsername and couchPassword are defined
+ * @property {string} couchDatabase - the name of the target couchdb database
+ * @property {string} couchUsername - the username with which to connect to the couchdb database
+ * @property {string} couchPassword - the password with which to connect to the couchdb database
  */
 
-var superagent = require('superagent');
-var Base64 = require('./Base64');
-
-var DESIGN_DOC = 'flavor';
-
-module.exports = function (defaultParameters) {
-    defaultParameters = defaultParameters || {};
-    defaultParameters = processCommonParams(defaultParameters, true);
-
-    var api = {};
+/**
+ * This is a description of the MyClass constructor function.
+ * @class
+ * @classdesc FlavorUtils class
+ */
+class FlavorUtils {
+    /**
+     * Constructor
+     * @param {options} defaultOpts - Default options
+     */
+    constructor(defaultOpts) {
+        this.defaultOptions = defaultOpts;
+    }
 
     /**
-     * Clone a flavor from one user to another
-     * @param {Object} opts - clone options
-     * @param {String} opts.designDoc - design doc name, defaults to 'flavor'
-     * @param {Object} opts.source - source description
-     * @param {string} opts.source.username - The name of the user's from which to clone
-     * @param {string} opts.source.flavor - The name of the flavor to clone
-     * @param {string} opts.source.couchUrl - Couchdb root url of the source. It should contain username + password if necessary
-     * @param {string} opts.source.couchDatabase - the name of the target couchdb database
-     * @param {string} opts.target - target description
-     * @param {String} opts.target.username - The target username to which to clone the flavor
-     * @param {string} opts.target.flavor - The name of the flavor in the target
-     * @param {string} opts.target.couchUrl - Couchdb root url of the target. It should contain username + password if necessary
-     * @param {string} opts.target.couchDatabase - the name of the target couchdb database
-     * @return {Promise} A promise that resolves with `undefined` if success, or rejects with an error if failure
+     * Get options object
+     * @param {options} opts - An option object to override default options with
+     * @returns {object}
      */
-    api.clone = function (opts) {
-        processCommonParams(opts.source);
-        processCommonParams(opts.target);
+    getOptions(opts) {
+        const options = Object.assign({}, optionDefaults, this.defaultOptions, opts);
+
+        if (options.couchUrl) options.couchUrl = options.couchUrl.replace(/\/$/, '');
+        if (options.couchUrl && options.couchDatabase) {
+            options.databaseUrl = options.couchUrl + '/' + options.couchDatabase;
+        }
+        return options;
+    }
+
+    /**
+     *
+     * @param {object} opts - An option object to override default options with
+     * @param {options} opts.source - An option object to override default options with
+     * @param {options} opts.target - An option object to override default options with
+     * @returns {Promise} A promise that resolves with `undefined` if success, or rejects with an error if failure
+     */
+    clone (opts) {
+        opts.source = this.getOptions(opts.source);
+        opts.target = this.getOptions(opts.target);
         var key = [opts.source.flavor, opts.source.username];
         return getView(opts.source, `${opts.source.designDoc}/docs`, key).then(function (res) {
             var result = res.rows;
@@ -134,19 +158,15 @@ module.exports = function (defaultParameters) {
 
             return done;
         });
-    };
+    }
 
     /**
-     * Clone a flavor from one user to another
-     * @param {Object} opts - options
-     * @param {string} opts.username - The name of the user's from which to clone
-     * @param {string} opts.flavor - The name of the flavor to clone
-     * @param {string} opts.couchUrl - Couchdb root url of the source. It should contain username + password if necessary
-     * @param {string} opts.couchDatabase - the name of the target couchdb database
-     * @return {Promise} Promise that resolves with `undefined` if success, or rejects with an error if not
+     * Delete all views associated to a flavor
+     * @param {options} opts - A promise that resolves with `undefined` if success, or rejects with an error if failure
+     * @returns {Promise}
      */
-    api.del = function (opts) {
-        processCommonParams(opts);
+    del (opts) {
+        opts = this.getOptions(opts);
         var key = [opts.flavor, opts.username];
         return getView(opts, `${opts.designDoc}/docs`, key).then(function (res) {
             var result = res.rows;
@@ -178,36 +198,42 @@ module.exports = function (defaultParameters) {
 
             return done;
         });
-    };
+    }
 
     /**
-     * Get a a flavor
-     * @param {Object} opts - options
-     * @param {string} opts.username - The user for which to search flavors
-     * @param {string} opts.flavor - The name of the flavor
-     * @param {string} opts.couchUrl - Couchdb root url of the source. It should contain username + password if necessary
-     * @param {string} opts.couchDatabase - the name of the target couchdb database
-     * @param {boolean} sorted - Should the result be sorted - Default is true
-     * @return {Promise} A promise that resolves with true if the flavor exists and has views, false if the the
-     * flavor does not exist or does not have views
+     * Get meta info about documents in a flavor
+     * @param {options} opts - An option object to override default options with
+     * @param {boolean} sorted - Set to true if documents should be sorted by flavors
      */
-    api.getFlavor = function (opts, sorted) {
-        processCommonParams(opts);
+    getFlavor(opts, sorted) {
+        opts = this.getOptions(opts);
         sorted = sorted === undefined ? true : sorted;
         var key = [opts.flavor, opts.username];
         if(sorted) {
             return getList(opts, `${opts.designDoc}/sort`, 'docs', key);
         }
         return getView(opts, `${opts.designDoc}/docs`, key);
-    };
+    }
 
     /**
-     * Get the hierachical structure from a flavor
-     * @param {Object} Expects either a view object such as returned by `getFlavor`, or the usual
-     * parameters: username, flavor, couchUrl, couchDatabase to perform the request and then create the structure from
-     * the result
+     * Check if this flavor has views associated with it
+     * @param {options} opts - An option object to override default options with
+     * @returns {Promise}
      */
-    api.getTree = function (opts) {
+    hasViews(opts) {
+        opts = this.getOptions(opts);
+        var key = [opts.flavor, opts.username];
+        return getView(opts, `${opts.designDoc}/docs`, key).then(function (res) {
+            return !(res.rows && res.rows.length === 0);
+        });
+    }
+
+    /**
+     * Get views tree for a flavor
+     * @param {options} opts - An option object to override default options with
+     * @returns {Promise}
+     */
+    getTree(opts) {
         if (opts.couchUrl) {
             return api.getFlavor(opts).then(function (views) {
                 if(views.rows) views = views.rows;
@@ -251,12 +277,20 @@ module.exports = function (defaultParameters) {
 
             return doElement(flavors, current[flavor], row);
         }
-    };
-    api.traverseTree = function(structure, viewCb, dirCb) {
+    }
+
+    /**
+     * Traverse a tree
+     * @param {object} tree - A tree such as returned by getTree
+     * @param {function} viewCb - A callback called on each view
+     * @param {function} dirCb - A callback called on each 'directory'
+     * @returns {Promise}
+     */
+    traverseTree (tree, viewCb, dirCb) {
         let promise = Promise.resolve();
-        for (let key in structure) {
+        for (let key in tree) {
             if (key.startsWith('__')) continue;
-            let el = structure[key];
+            let el = tree[key];
             if (el.__id) { // Element is a view
                 if(viewCb) promise = promise.then(function() {
                     return viewCb(el);
@@ -271,136 +305,92 @@ module.exports = function (defaultParameters) {
             }
         }
         return promise;
-    };
-
-    /**
-     * Check if a flavor has views
-     * @param {Object} opts - options
-     * @param {string} opts.username - The username for which to search the flavor
-     * @param {string} opts.flavor - The name of the flavor
-     * @param {string} opts.couchUrl - Couchdb root url of the source. It should contain username + password if necessary
-     * @param {string} opts.couchDatabase - the name of the target couchdb database
-     * @return {Promise} A promise that resolves with true if the flavor exists and has views, false if the flavor
-     * does not exist or does not have views
-     */
-    api.hasViews = function (opts) {
-        processCommonParams(opts);
-        var key = [opts.flavor, opts.username];
-        return getView(opts, `${opts.designDoc}/docs`, key).then(function (res) {
-            return !(res.rows && res.rows.length === 0);
-        });
-    };
-
-
-    function deleteDoc(opts, doc) {
-        processCommonParams(opts);
-        return new Promise(function (resolve, reject) {
-            var url = opts.databaseUrl + '/' + doc._id;
-            superagent
-                .del(url)
-                .query({rev: doc._rev})
-                .end(function (err, res) {
-                    if (err) {
-                        return reject(err);
-                    }
-                    resolve(res);
-                })
-        });
-    }
-
-    function updateDoc(opts, doc) {
-        return new Promise(function (resolve, reject) {
-            var url = opts.databaseUrl + '/' + doc._id;
-            superagent
-                .put(url)
-                .set('Content-Type', 'application/json')
-                .send(doc)
-                .end(function (err, res) {
-                    if (err) {
-                        return reject(err);
-                    }
-                    resolve(res.body);
-                })
-        });
-    }
-
-    /**
-     * @private
-     * @param opts - the usual options object
-     * @param doc - The document to save
-     * @return {Promise} - Promise that resolves with couchdb's response if success, or rejects with error if failure
-     */
-    function saveDoc(opts, doc) {
-        return new Promise(function (resolve, reject) {
-            var url = opts.databaseUrl;
-            delete doc._id;
-            superagent
-                .post(url)
-                .set('Content-Type', 'application/json')
-                .send(doc)
-                .end(function (err, res) {
-                    if (err) {
-                        return reject(err);
-                    }
-                    resolve(res.body);
-                })
-        });
-    }
-
-    function getView(opts, view, key) {
-        var x = view.split('/');
-        var designDoc = '_design/' + x[0];
-        var viewName = x[1];
-
-        return getJSON(opts.databaseUrl + '/' + designDoc + '/_view/' + viewName + '?key=' + encodeURIComponent(JSON.stringify(key)));
-    }
-
-    function getList(opts, list, view, key) {
-        var x = list.split('/');
-        var designDoc = '_design/' + x[0];
-        var listName = x[1];
-
-        return getJSON(opts.databaseUrl + '/' + designDoc + '/_list/' + listName + '/' + view + '?key=' + encodeURIComponent(JSON.stringify(key)));
-    }
-
-    function getUUIDs(opts, count) {
-        count = count || 1;
-        return getJSON(opts.couchUrl + '/_uuids?count=' + count);
-    }
-
-    function getJSON(url) {
-        return new Promise(function (resolve, reject) {
-            superagent
-                .get(url)
-                .set('Accept', 'application/json')
-                .end(function (err, res) {
-                    if (err) {
-                        return reject(err);
-                    }
-                    resolve(res.body);
-                })
-        });
     }
 
 
-    function processCommonParams(params, makeNew) {
-        if (!params) return;
-        if(makeNew) params = Object.assign({}, params);
-        params.couchUrl = params.couchUrl || defaultParameters.couchUrl;
-        params.couchDatabase = params.couchDatabase || defaultParameters.couchDatabase;
-        params.designDoc = params.designDoc || defaultParameters.designDoc || DESIGN_DOC;
-        params.username = params.username || defaultParameters.username;
-        params.flavor = params.flavor || defaultParameters.flavor;
+}
 
-        if (params.couchUrl) params.couchUrl = params.couchUrl.replace(/\/$/, '');
-        if (params.couchUrl && params.couchDatabase) {
-            params.databaseUrl = params.couchUrl + '/' + params.couchDatabase;
-        }
-        return params;
-    }
+module.exports = FlavorUtils;
 
-    return api;
-};
+function saveDoc(opts, doc) {
+    return new Promise(function (resolve, reject) {
+        var url = opts.databaseUrl;
+        delete doc._id;
+        superagent
+            .post(url)
+            .set('Content-Type', 'application/json')
+            .send(doc)
+            .end(function (err, res) {
+                if (err) {
+                    return reject(err);
+                }
+                resolve(res.body);
+            })
+    });
+}
 
+function getView(opts, view, key) {
+    var x = view.split('/');
+    var designDoc = '_design/' + x[0];
+    var viewName = x[1];
 
+    return getJSON(opts.databaseUrl + '/' + designDoc + '/_view/' + viewName + '?key=' + encodeURIComponent(JSON.stringify(key)));
+}
 
+function getList(opts, list, view, key) {
+    var x = list.split('/');
+    var designDoc = '_design/' + x[0];
+    var listName = x[1];
+
+    return getJSON(opts.databaseUrl + '/' + designDoc + '/_list/' + listName + '/' + view + '?key=' + encodeURIComponent(JSON.stringify(key)));
+}
+
+function getUUIDs(opts, count) {
+    count = count || 1;
+    return getJSON(opts.couchUrl + '/_uuids?count=' + count);
+}
+
+function getJSON(url) {
+    return new Promise(function (resolve, reject) {
+        superagent
+            .get(url)
+            .set('Accept', 'application/json')
+            .end(function (err, res) {
+                if (err) {
+                    return reject(err);
+                }
+                resolve(res.body);
+            })
+    });
+}
+
+function deleteDoc(opts, doc) {
+    return new Promise(function (resolve, reject) {
+        var url = opts.databaseUrl + '/' + doc._id;
+        superagent
+            .del(url)
+            .query({rev: doc._rev})
+            .end(function (err, res) {
+                if (err) {
+                    return reject(err);
+                }
+                resolve(res);
+            })
+    });
+}
+
+function updateDoc(opts, doc) {
+    return new Promise(function (resolve, reject) {
+        var url = opts.databaseUrl + '/' + doc._id;
+        superagent
+            .put(url)
+            .set('Content-Type', 'application/json')
+            .send(doc)
+            .end(function (err, res) {
+                if (err) {
+                    return reject(err);
+                }
+                resolve(res.body);
+            })
+    });
+}
