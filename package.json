@@ -1,6 +1,6 @@
 {
   "name": "flavor-utils",
-  "version": "2.0.2",
+  "version": "3.0.0",
   "description": "Utility functions to manipulate cheminfo flavor system on couchdb",
   "keywords": [
     "couchdb",
