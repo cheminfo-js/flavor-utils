@@ -2,6 +2,7 @@
 
 const superagent = require('superagent');
 const Base64 = require('./Base64');
+const url = require('url');
 
 const optionDefaults = {
     designDoc: 'flavor'
@@ -11,7 +12,6 @@ const optionDefaults = {
 /**
  * General options object
  * @typedef {object} options
- * @property {string} opts.target - target description
  * @property {String} username - The target username to which to clone the flavor
  * @property {String} designDoc - The design doc to use for views and list queries - Defaults to 'flavor'
  * @property {string} flavor - The name of the flavor in the target
@@ -43,11 +43,33 @@ class FlavorUtils {
     getOptions(opts) {
         const options = Object.assign({}, optionDefaults, this.defaultOptions, opts);
 
+        // Add auth to url
+        var auth = '';
+        if (options.couchUsername) {
+            auth += options.couchUsername;
+            if (options.couchPassword) {
+                auth += ':' + options.couchPassword;
+            }
+        }
+        if (options.couchUrl) {
+            var parsedUrl = url.parse(options.couchUrl);
+            if (auth) {
+                parsedUrl.auth = auth;
+            }
+            options.couchUrl = parsedUrl.format();
+        }
+
+        // Remove trailing slash from url
         if (options.couchUrl) options.couchUrl = options.couchUrl.replace(/\/$/, '');
         if (options.couchUrl && options.couchDatabase) {
             options.databaseUrl = options.couchUrl + '/' + options.couchDatabase;
         }
         return options;
+    }
+
+    getFlavors(opts) {
+        opts = this.getOptions(opts);
+        return getView(opts, `${opts.designDoc}/list`, opts.username);
     }
 
     /**
@@ -57,7 +79,7 @@ class FlavorUtils {
      * @param {options} opts.target - An option object to override default options with
      * @returns {Promise} A promise that resolves with `undefined` if success, or rejects with an error if failure
      */
-    clone (opts) {
+    clone(opts) {
         opts.source = this.getOptions(opts.source);
         opts.target = this.getOptions(opts.target);
         var key = [opts.source.flavor, opts.source.username];
@@ -165,7 +187,7 @@ class FlavorUtils {
      * @param {options} opts - A promise that resolves with `undefined` if success, or rejects with an error if failure
      * @returns {Promise}
      */
-    del (opts) {
+    del(opts) {
         opts = this.getOptions(opts);
         var key = [opts.flavor, opts.username];
         return getView(opts, `${opts.designDoc}/docs`, key).then(function (res) {
@@ -209,7 +231,7 @@ class FlavorUtils {
         opts = this.getOptions(opts);
         sorted = sorted === undefined ? true : sorted;
         var key = [opts.flavor, opts.username];
-        if(sorted) {
+        if (sorted) {
             return getList(opts, `${opts.designDoc}/sort`, 'docs', key);
         }
         return getView(opts, `${opts.designDoc}/docs`, key);
@@ -235,8 +257,8 @@ class FlavorUtils {
      */
     getTree(opts) {
         if (opts.couchUrl) {
-            return api.getFlavor(opts).then(function (views) {
-                if(views.rows) views = views.rows;
+            return this.getFlavor(opts).then(function (views) {
+                if (views.rows) views = views.rows;
                 return getTree(views);
             });
         } else {
@@ -271,7 +293,7 @@ class FlavorUtils {
                     __parents: current.__parents ? current.__parents.slice() : [],
                     __parent: current
                 };
-                if(current.__name) current[flavor].__parents.push(current.__name);
+                if (current.__name) current[flavor].__parents.push(current.__name);
                 //if(current.__parents) console.log(current.__parents)
             }
 
@@ -286,21 +308,21 @@ class FlavorUtils {
      * @param {function} dirCb - A callback called on each 'directory'
      * @returns {Promise}
      */
-    traverseTree (tree, viewCb, dirCb) {
+    traverseTree(tree, viewCb, dirCb) {
         let promise = Promise.resolve();
         for (let key in tree) {
             if (key.startsWith('__')) continue;
             let el = tree[key];
             if (el.__id) { // Element is a view
-                if(viewCb) promise = promise.then(function() {
+                if (viewCb) promise = promise.then(function () {
                     return viewCb(el);
                 });
             } else if (key !== '__root') { // Element is a directory
-                if(dirCb) promise = promise.then(function() {
+                if (dirCb) promise = promise.then(function () {
                     return dirCb(el);
                 });
-                promise = promise.then(function() {
-                    return api.traverseTree(el, viewCb, dirCb);
+                promise = promise.then(() => {
+                    return this.traverseTree(el, viewCb, dirCb);
                 });
             }
         }
