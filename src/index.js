@@ -283,6 +283,7 @@ class FlavorUtils {
                 current.__meta = row.meta;
                 current.__id = row._id;
                 current.__rev = row._rev;
+                current.__version = row.version;
                 return;
             }
 
@@ -294,7 +295,6 @@ class FlavorUtils {
                     __parent: current
                 };
                 if (current.__name) current[flavor].__parents.push(current.__name);
-                //if(current.__parents) console.log(current.__parents)
             }
 
             return doElement(flavors, current[flavor], row);
