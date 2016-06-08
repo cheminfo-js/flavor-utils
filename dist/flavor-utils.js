@@ -358,10 +358,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	                if (!flavors.length) {
 	                    current.__data = row.data;
 	                    current.__view = row.view;
-	                    current.__meta = row.meta;
 	                    current.__id = row._id;
 	                    current.__rev = row._rev;
 	                    current.__version = row.version;
+	                    current.__keywords = row.keywords;
+	                    current.__meta = row.meta;
 	                    return;
 	                }
 
