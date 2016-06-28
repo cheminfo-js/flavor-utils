@@ -285,6 +285,7 @@ class FlavorUtils {
                 current.__version = row.version;
                 current.__keywords = row.keywords;
                 current.__meta = row.meta;
+                current.__title = row.title;
                 return;
             }
 
